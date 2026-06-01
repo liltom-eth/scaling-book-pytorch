@@ -1,0 +1,4 @@
+# Pin to v1.x (Sphinx-based); v2.x uses a completely different CLI
+jupyter-book>=1.0,<2.0
+sphinx-copybutton
+sphinxcontrib-bibtex

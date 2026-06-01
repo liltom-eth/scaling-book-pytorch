@@ -1,0 +1,41 @@
+# Jupyter Book table of contents
+# https://jupyterbook.org/structure/toc.html
+
+format: jb-book
+root: chapters/index
+
+parts:
+  - caption: "Part 1: Foundations"
+    chapters:
+      - file: chapters/roofline
+      - file: chapters/gpu-architecture
+      - file: chapters/cuda-mental-model
+      - file: chapters/sharding
+
+  - caption: "Part 2: Transformers and Inference"
+    chapters:
+      - file: chapters/transformers
+      - file: chapters/inference
+      - file: chapters/inference-systems
+      - file: chapters/quantization
+      - file: chapters/applied-inference
+
+  - caption: "Part 3: Training"
+    chapters:
+      - file: chapters/training-parallelism
+      - file: chapters/training-efficiency
+      - file: chapters/applied-training
+
+  - caption: "Part 4: Advanced Training"
+    chapters:
+      - file: chapters/deepspeed-megatron
+
+  - caption: "Part 5: Going Deeper"
+    chapters:
+      - file: chapters/triton-kernels
+      - file: chapters/torch-compile
+      - file: chapters/profiling
+
+  - caption: "Part 6: Conclusions"
+    chapters:
+      - file: chapters/conclusion

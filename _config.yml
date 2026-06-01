@@ -1,0 +1,61 @@
+# Jupyter Book configuration
+# https://jupyterbook.org/customize/config.html
+
+title: How to Scale Your Model
+subtitle: A Systems View of LLMs on GPUs
+author: liltom-eth
+copyright: "2026"
+logo: assets/img/cover.png
+
+# Don't execute notebooks on build (pure markdown book)
+execute:
+  execute_notebooks: 'off'
+
+# LaTeX / PDF export settings
+latex:
+  latex_documents:
+    targetname: scaling-book-pytorch.tex
+
+# Bibliography
+bibtex_bibfiles:
+  - references.bib
+
+# Repository info (for GitHub buttons)
+repository:
+  url: https://github.com/liltom-eth/scaling-book-pytorch
+  path_to_book: .
+  branch: main
+
+# HTML output
+html:
+  use_issues_button: true
+  use_repository_button: true
+  use_edit_page_button: false
+  extra_navbar: ""
+  home_page_in_navbar: true
+  comments:
+    utterances:
+      repo: "liltom-eth/scaling-book-pytorch"
+
+# MyST Markdown extensions
+parse:
+  myst_enable_extensions:
+    - amsmath        # LaTeX math environments (align, equation, etc.)
+    - colon_fence    # ::: directive fences as alternative to ```
+    - deflist        # Definition lists
+    - dollarmath     # $ and $$ math
+    - html_image     # HTML <img> tags in markdown
+    - linkify        # Auto-detect URLs and linkify
+    - replacements   # Typography replacements (e.g., -- → –)
+    - smartquotes    # Smart quotes
+    - substitution   # Define and use substitutions
+    - tasklist       # GitHub-style task lists [ ] / [x]
+  myst_url_schemes: [mailto, http, https]
+  myst_dmath_double_inline: true
+
+sphinx:
+  config:
+    html_favicon: assets/img/favicon.png
+    html_theme_options:
+      navigation_depth: 3
+      show_toc_level: 2
