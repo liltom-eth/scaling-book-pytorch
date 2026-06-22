@@ -89,13 +89,13 @@ This is a reasonable assumption for Transformer matmuls since we typically have 
 **Takeaway:** for a bfloat16 matmul to be compute-bound on most TPUs, we need our per-replica token batch size to be greater than 240.[^12]
 :::
 
-This comes with a few notable caveats we'll explore in the problems below, particularly with respect to quantization (e.g., if we quantize our activations but still do full-precision FLOPs), but it's a good rule to remember. For GPUs, this number is slightly higher (closer to 300), but the same conclusion generally holds. When we [decompose a big matmul into smaller matmuls](https://docs.jax.dev/en/latest/pallas/tpu/matmul.html#your-first-matrix-multiplication-kernel), the tile sizes also matter.[^13] We'll discuss the lower-level GPU and TPU details in the [next section](../tpus).
+This comes with a few notable caveats we'll explore in the problems below, particularly with respect to quantization (e.g., if we quantize our activations but still do full-precision FLOPs), but it's a good rule to remember. For GPUs, this number is slightly higher (closer to 300), but the same conclusion generally holds. When we [decompose a big matmul into smaller matmuls](https://docs.jax.dev/en/latest/pallas/tpu/matmul.html#your-first-matrix-multiplication-kernel), the tile sizes also matter.[^13] We'll discuss the lower-level GPU and TPU details in the [next section](gpu-architecture).
 
 ### Network communication rooflines
 
 All the rooflines we've discussed so far have been memory-bandwidth rooflines, _all within a single chip_. This shouldn't be taken as a rule. In fact, most of the rooflines we'll care about in this book involve communication between chips: usually matrix multiplications that involve matrices sharded across multiple TPUs.
 
-To pick a somewhat contrived example, say we want to multiply two big matrices $X\sim \text{bf16}[B, D]$ and $Y \sim \text{bf16}[D, F]$ which are split evenly across 2 TPUs/GPUs (along the $D$ dimension). To do this multiplication (as we'll see in [Section 3](../sharding)), we can multiply half of each matrix on each TPU (`Z0 = X[:, :D // 2] @ Y[:D // 2, :]` on TPU 0 and `Z1 = X[:, D // 2:] @ Y[D // 2:, :]` on TPU 1) and then copy the resulting "partial sums" to the other TPU and add them together. Say we can copy `4.5e10` bytes/s in each direction and perform `1.97e14` FLOPs/s on each chip. What are $T_\text{math}$ and $T_\text{comms}$?
+To pick a somewhat contrived example, say we want to multiply two big matrices $X\sim \text{bf16}[B, D]$ and $Y \sim \text{bf16}[D, F]$ which are split evenly across 2 TPUs/GPUs (along the $D$ dimension). To do this multiplication (as we'll see in [Section 3](sharding)), we can multiply half of each matrix on each TPU (`Z0 = X[:, :D // 2] @ Y[:D // 2, :]` on TPU 0 and `Z1 = X[:, D // 2:] @ Y[D // 2:, :]` on TPU 1) and then copy the resulting "partial sums" to the other TPU and add them together. Say we can copy `4.5e10` bytes/s in each direction and perform `1.97e14` FLOPs/s on each chip. What are $T_\text{math}$ and $T_\text{comms}$?
 
 $T_\text{math}$ is clearly half of what it was before, since each TPU is doing half the work, i.e.[^14]
 
@@ -105,7 +105,7 @@ Now what about $T_\text{comms}$? This now refers to the communication time betwe
 
 $$T_\text{comms} = \frac{2BF}{\text{Network Bandwidth}} = \frac{2BF}{4.5e10}$$
 
-Therefore we become compute-bound (now with respect to the inter-chip network) when $$\text{Intensity}(\text{matmul (2-chips)}) > \text{Intensity}(\text{TPU w.r.t. inter-chip network})$$ or equivalently when $\frac{BDF}{2BF} = \frac{D}{2} > \frac{1.97e14}{4.5e10} = 4377$ or $D > 8755$. Note that, unlike before, the critical threshold now depends on $D$ and not $B$! Try to think why that is. This is just one such example, but we highlight that this kind of roofline is critical to knowing when we can parallelize an operation across multiple TPUs.
+Therefore we become compute-bound (now with respect to the inter-chip network) when $\text{Intensity}(\text{matmul (2-chips)}) > \text{Intensity}(\text{TPU w.r.t. inter-chip network})$ or equivalently when $\frac{BDF}{2BF} = \frac{D}{2} > \frac{1.97e14}{4.5e10} = 4377$ or $D > 8755$. Note that, unlike before, the critical threshold now depends on $D$ and not $B$! Try to think why that is. This is just one such example, but we highlight that this kind of roofline is critical to knowing when we can parallelize an operation across multiple TPUs.
 
 ## A Few Problems to Work
 
@@ -120,10 +120,10 @@ Assume our HBM bandwidth is `8.2e11` bytes/s and our int8 peak OPs/s is `3.94e14
 
 {% details Click here for the answer. %}
 
-1. Because we're storing our parameters in int8, we have 1 byte per parameter, so we have $$BD + DF$$ bytes loaded from HBM and $$BF$$ written back.
+1. Because we're storing our parameters in int8, we have 1 byte per parameter, so we have $BD + DF$ bytes loaded from HBM and $BF$ written back.
 2. This is the same as in bfloat16, but in theory int8 OPs/s should be faster. So this is still $2BDF$ OPs.
-3. Arithmetic intensity is $$2BDF / (BD + DF + BF)$$. If we make the same assumption as above about $$B \ll D$$ and $$B \ll F$$, we get an arithmetic intensity of $$2B$$, meaning our rule becomes $B > \text{HBM int8 arithmetic intensity} / 2$. Using the numbers given, this int8 intensity is `3.94e14 / 8.2e11 = 480`, so the rule is $B > 480 / 2 = 240$. Note that this is basically unchanged!
-4. $$T_\text{math} = 2BDF / 3.94e14$$ and $$T_\text{comms} = (BD + DF + BF) / 8.2e11$$, so a reasonable lower bound is $$\max(T_\text{math}, T_\text{comms})$$ and an upper bound is $$T_\text{math} + T_\text{comms}$$.
+3. Arithmetic intensity is $2BDF / (BD + DF + BF)$. If we make the same assumption as above about $B \ll D$ and $B \ll F$, we get an arithmetic intensity of $2B$, meaning our rule becomes $B > \text{HBM int8 arithmetic intensity} / 2$. Using the numbers given, this int8 intensity is `3.94e14 / 8.2e11 = 480`, so the rule is $B > 480 / 2 = 240$. Note that this is basically unchanged!
+4. $T_\text{math} = 2BDF / 3.94e14$ and $T_\text{comms} = (BD + DF + BF) / 8.2e11$, so a reasonable lower bound is $\max(T_\text{math}, T_\text{comms})$ and an upper bound is $T_\text{math} + T_\text{comms}$.
 
 {% enddetails %}
 
@@ -133,7 +133,7 @@ Assume our HBM bandwidth is `8.2e11` bytes/s and our int8 peak OPs/s is `3.94e14
 
 {% details Click here for the answer. %}
 
-Again assuming B is small, we have 2BDF bfloat16 FLOPs but only DF weights (instead of 2DF in bfloat16). This means we become compute-bound when $$2B > 240$$ or $$B > 120$$. This is a lot lower, meaning if we can do int8 weight quantization (which is fairly easy to do) but still do bfloat16 FLOPs, we get a meaningful win in efficiency (although int8 OPs would be better).
+Again assuming B is small, we have 2BDF bfloat16 FLOPs but only DF weights (instead of 2DF in bfloat16). This means we become compute-bound when $2B > 240$ or $B > 120$. This is a lot lower, meaning if we can do int8 weight quantization (which is fairly easy to do) but still do bfloat16 FLOPs, we get a meaningful win in efficiency (although int8 OPs would be better).
 
 {% enddetails %}
 
@@ -180,9 +180,9 @@ plt.grid()
 
 Let's start by looking at the total FLOPs and comms.
 
-1. Total FLOPs: the FLOPs is basically the same, since we're doing $$B$$ independent $$[D] \times [D, F]$$ products, the same total work as a single $$[B, D] \times [D, F]$$ matmul (this is discussed more in Section 4). So this is just $$2BDF$$.
-2. Total comms: we have a lot more comms here: $$BD + BDF + BF$$.
-3. Therefore, our arithmetic intensity is now actually $$2BDF / (BD + BDF + BF)$$. Since $$BDF$$ dominates the denominator, this is roughly $$2$$. So instead of it depending on the batch size, this is essentially constant. This is bad because it means we'll basically always be comms bound no matter what.
+1. Total FLOPs: the FLOPs is basically the same, since we're doing $B$ independent $[D] \times [D, F]$ products, the same total work as a single $[B, D] \times [D, F]$ matmul (this is discussed more in Section 4). So this is just $2BDF$.
+2. Total comms: we have a lot more comms here: $BD + BDF + BF$.
+3. Therefore, our arithmetic intensity is now actually $2BDF / (BD + BDF + BF)$. Since $BDF$ dominates the denominator, this is roughly $2$. So instead of it depending on the batch size, this is essentially constant. This is bad because it means we'll basically always be comms bound no matter what.
 
 {% enddetails %}
 

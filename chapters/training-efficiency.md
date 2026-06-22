@@ -132,7 +132,7 @@ for i, layer in enumerate(model.layers):
         model.layers[i] = CheckpointedLayer(layer)
 ```
 
-A common heuristic: checkpoint the attention blocks but not the MLP blocks, since the $$QK^T$$ attention matrix is large while MLP activations are smaller.
+A common heuristic: checkpoint the attention blocks but not the MLP blocks, since the $QK^T$ attention matrix is large while MLP activations are smaller.
 
 ### Activation Checkpointing with FSDP
 

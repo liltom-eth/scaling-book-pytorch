@@ -18,13 +18,13 @@ We use the following notation throughout.
 | W | Bidirectional link bandwidth |
 | X, Y | Number of GPUs along a mesh axis |
 
-For H100 SXM5: C = 989 TFLOPs/s, HBM bandwidth = 3.35 TB/s. Critical arithmetic intensity = C / HBM ≈ 295 FLOPs/byte — we need ~295 BF16 tokens processed per weight byte loaded to be compute-bound. For a single linear layer with weight $$W[D, F]$$ in BF16 ($$2DF$$ bytes), this requires batch size $$B > 295 / 2 \approx 148$$ tokens.
+For H100 SXM5: C = 989 TFLOPs/s, HBM bandwidth = 3.35 TB/s. Critical arithmetic intensity = C / HBM ≈ 295 FLOPs/byte — we need ~295 BF16 tokens processed per weight byte loaded to be compute-bound. For a single linear layer with weight $W[D, F]$ in BF16 ($2DF$ bytes), this requires batch size $B > 295 / 2 \approx 148$ tokens.
 
 We model a Transformer as a stack of two-matrix MLP blocks (attention is typically a small fraction of FLOPs for D ≥ 4096). Each layer:
 
 $$\text{Out}[B, D] = \text{In}[B, D] \cdot W_\text{in}[D, F] \cdot W_\text{out}[F, D]$$
 
-Training FLOPs per layer: $$6BTDF$$ ($$2BTDF$$ forward, $$4BTDF$$ backward for dW and dIn).
+Training FLOPs per layer: $6BTDF$ ($2BTDF$ forward, $4BTDF$ backward for dW and dIn).
 
 ## Data Parallelism (DDP)
 
@@ -54,7 +54,7 @@ for batch in dataloader:
     optimizer.zero_grad()
 ```
 
-**Communication cost:** gradient AllReduce after each backward pass. An AllReduce of $$V$$ bytes costs $$2V / W$$ on a ring. Per layer, we AllReduce $$W_\text{in}$$ and $$W_\text{out}$$, totaling $$2 \times 2DF$$ bytes (BF16). With $$L$$ layers, total comms:
+**Communication cost:** gradient AllReduce after each backward pass. An AllReduce of $V$ bytes costs $2V / W$ on a ring. Per layer, we AllReduce $W_\text{in}$ and $W_\text{out}$, totaling $2 \times 2DF$ bytes (BF16). With $L$ layers, total comms:
 
 $$T_\text{comms} = \frac{2 \times 4DFL}{W}$$
 
@@ -62,7 +62,7 @@ $$T_\text{comms} = \frac{2 \times 4DFL}{W}$$
 
 $$T_\text{math} = \frac{6BTDFL}{C}$$
 
-**Compute-bound condition** ($$T_\text{math} > T_\text{comms}$$):
+**Compute-bound condition** ($T_\text{math} > T_\text{comms}$):
 
 $$\frac{6BTDFL}{C} > \frac{8DFL}{W} \implies \frac{B}{X} > \frac{4C}{3W}$$
 
@@ -70,8 +70,8 @@ Note: DDP overlaps the AllReduce with the backward pass via gradient bucketing (
 
 **H100 numbers:**
 
-- **Within a node (NVLink, W = 900 GB/s):** minimum $$B/X > 4 \times 989\text{e12} / (3 \times 900\text{e9}) \approx 1,465$$ tokens/GPU
-- **Cross-node (InfiniBand NDR, W = 50 GB/s):** minimum $$B/X > 4 \times 989\text{e12} / (3 \times 50\text{e9}) \approx 26,373$$ tokens/GPU
+- **Within a node (NVLink, W = 900 GB/s):** minimum $B/X > 4 \times 989\text{e12} / (3 \times 900\text{e9}) \approx 1,465$ tokens/GPU
+- **Cross-node (InfiniBand NDR, W = 50 GB/s):** minimum $B/X > 4 \times 989\text{e12} / (3 \times 50\text{e9}) \approx 26,373$ tokens/GPU
 
 Cross-node DDP requires very large per-GPU batch sizes. This is why DDP gradient AllReduces are bucketed — DDP groups small gradient tensors into 25 MB buckets to maximize InfiniBand bandwidth utilization.
 
@@ -123,7 +123,7 @@ for layer in model.layers:
 fully_shard(model)
 ```
 
-**Communication cost:** per layer, FSDP does one AllGather (forward) and one ReduceScatter (backward). Each costs $$V / W$$ for $$V$$ bytes on a ring. Per layer, we transfer $$W_\text{in}[D, F]$$ and $$W_\text{out}[F, D]$$, each of $$2DF$$ bytes:
+**Communication cost:** per layer, FSDP does one AllGather (forward) and one ReduceScatter (backward). Each costs $V / W$ for $V$ bytes on a ring. Per layer, we transfer $W_\text{in}[D, F]$ and $W_\text{out}[F, D]$, each of $2DF$ bytes:
 
 $$T_\text{comms} = \frac{4DFL}{W}$$
 
@@ -153,7 +153,7 @@ ZeRO-1 and ZeRO-2 keep parameters replicated, avoiding the AllGather during the 
 
 **Idea:** shard individual weight matrices across GPUs along the non-batch dimension. Each GPU computes a partial result, then an AllReduce combines them. This is the Megatron-LM style of parallelism.
 
-For the two-matrix MLP block, split $$W_\text{in}$$ column-wise and $$W_\text{out}$$ row-wise:
+For the two-matrix MLP block, split $W_\text{in}$ column-wise and $W_\text{out}$ row-wise:
 
 ```
 GPU 0: W_in[D, F/Y]   GPU 1: W_in[D, F/Y]
@@ -165,7 +165,7 @@ GPU 0: partial[B, D]  GPU 1: partial[B, D]
               Out[B, D]
 ```
 
-All GPUs see the full input activations, each computes a partial output over $$F/Y$$ features, and an AllReduce sums the partial results.
+All GPUs see the full input activations, each computes a partial output over $F/Y$ features, and an AllReduce sums the partial results.
 
 In PyTorch with DTensor (see [Chapter 4](sharding.md)):
 
@@ -187,22 +187,22 @@ parallelize_module(
 )
 ```
 
-**Communication cost per layer:** one AllReduce of $$Out[B, D]$$, which is $$2BD$$ bytes in BF16:
+**Communication cost per layer:** one AllReduce of $Out[B, D]$, which is $2BD$ bytes in BF16:
 
 $$T_\text{comms} = \frac{2BD}{W}$$
 
-Compute per GPU per layer: $$\frac{6BTDF}{Y}$$ (weight is sharded by Y).
+Compute per GPU per layer: $\frac{6BTDF}{Y}$ (weight is sharded by Y).
 
-**Compute-bound condition** ($$T_\text{math} > T_\text{comms}$$):
+**Compute-bound condition** ($T_\text{math} > T_\text{comms}$):
 
 $$\frac{6BTDF}{YC} > \frac{2BD}{W} \implies T \cdot F > \frac{YC}{3W}$$
 
-This is **independent of batch size** — TP is limited by the product $$T \cdot F$$ relative to the operational intensity $$C/W$$.
+This is **independent of batch size** — TP is limited by the product $T \cdot F$ relative to the operational intensity $C/W$.
 
 **H100 numbers:**
 
-- **NVLink (W = 900 GB/s):** $$C/W \approx 1,099$$. For 8-way TP (Y=8): need $$T \cdot F > 2,931$$. At T=2048 this is F > 1.4 — always satisfied. TP within a node is essentially free for any realistic transformer.
-- **InfiniBand NDR (W = 50 GB/s):** $$C/W \approx 19,780$$. For Y=8: need $$T \cdot F > 52,613$$. At T=2048 this requires F > 26. Still fine numerically, but AllReduce latency (~5–20 µs per call × many layers) accumulates and degrades efficiency badly. **Keep TP within-node.**
+- **NVLink (W = 900 GB/s):** $C/W \approx 1,099$. For 8-way TP (Y=8): need $T \cdot F > 2,931$. At T=2048 this is F > 1.4 — always satisfied. TP within a node is essentially free for any realistic transformer.
+- **InfiniBand NDR (W = 50 GB/s):** $C/W \approx 19,780$. For Y=8: need $T \cdot F > 52,613$. At T=2048 this requires F > 26. Still fine numerically, but AllReduce latency (~5–20 µs per call × many layers) accumulates and degrades efficiency badly. **Keep TP within-node.**
 
 **When to use TP:**
 - Activation memory is a bottleneck (activations are also sharded in sequence-parallel TP variants)
@@ -213,11 +213,11 @@ This is **independent of batch size** — TP is limited by the product $$T \cdot
 
 The standard recipe for large model training (e.g., LLaMA 3 70B on 512+ GPUs) combines tensor parallelism within a node (NVLink) and FSDP across nodes (InfiniBand).
 
-Let $$Y$$ = TP degree (typically 8, within-node), $$X$$ = FSDP degree (across nodes).
+Let $Y$ = TP degree (typically 8, within-node), $X$ = FSDP degree (across nodes).
 
 **Per-layer communication:**
-- TP AllReduce (NVLink): $$2BD / W_\text{NVLink}$$
-- FSDP AllGather + ReduceScatter (InfiniBand): $$4DF / (X \cdot W_\text{IB})$$
+- TP AllReduce (NVLink): $2BD / W_\text{NVLink}$
+- FSDP AllGather + ReduceScatter (InfiniBand): $4DF / (X \cdot W_\text{IB})$
 
 **Compute-bound conditions:**
 
@@ -226,8 +226,8 @@ $$\text{(TP bound)}: \quad T \cdot F > \frac{YC}{3W_\text{NVLink}}$$
 $$\text{(FSDP bound)}: \quad \frac{B}{X} > \frac{2C}{3W_\text{IB}}$$
 
 With H100:
-- **TP bound** (Y=8, NVLink 900 GB/s): $$T \cdot F > 8 \times 989\text{e12} / (3 \times 900\text{e9}) \approx 2{,}931$$. At T=2048, need F > 1.4. Always satisfied.
-- **FSDP bound** (InfiniBand 50 GB/s): $$B/X > 2 \times 989\text{e12} / (3 \times 50\text{e9}) \approx 13{,}187$$ tokens/GPU.
+- **TP bound** (Y=8, NVLink 900 GB/s): $T \cdot F > 8 \times 989\text{e12} / (3 \times 900\text{e9}) \approx 2{,}931$. At T=2048, need F > 1.4. Always satisfied.
+- **FSDP bound** (InfiniBand 50 GB/s): $B/X > 2 \times 989\text{e12} / (3 \times 50\text{e9}) \approx 13{,}187$ tokens/GPU.
 
 For LLaMA 3 70B training: with 16M tokens/step and X=512 FSDP shards, B/X ≈ 31,250 > 13,187. Compute-bound. ✓
 
@@ -266,9 +266,9 @@ GPU 0: layers 0–7    GPU 1: layers 8–15    GPU 2: layers 16–23   GPU 3: la
     ← gradients  ← gradients  ← gradients  ←
 ```
 
-The key challenge is **pipeline bubbles** — GPUs idle while waiting for previous stages. A naive schedule (one micro-batch at a time) has bubble fraction $$(Z-1)/Z$$. Interleaved schedules (Megatron's 1F1B) achieve bubble fraction $$(Z-1)/(Z + M - 1)$$ where M is the number of micro-batches, approaching 0 as M → ∞.
+The key challenge is **pipeline bubbles** — GPUs idle while waiting for previous stages. A naive schedule (one micro-batch at a time) has bubble fraction $(Z-1)/Z$. Interleaved schedules (Megatron's 1F1B) achieve bubble fraction $(Z-1)/(Z + M - 1)$ where M is the number of micro-batches, approaching 0 as M → ∞.
 
-**Communication per PP step:** only the activation tensor $$[B_\text{micro}, D]$$ passes between adjacent stages — much smaller than TP's AllReduce or FSDP's AllGather.
+**Communication per PP step:** only the activation tensor $[B_\text{micro}, D]$ passes between adjacent stages — much smaller than TP's AllReduce or FSDP's AllGather.
 
 ```python
 from torch.distributed.pipelining import PipelineStage, ScheduleGPipe
@@ -312,7 +312,7 @@ For LLaMA 3 70B (D=8192, F=28672, L=80) on 512 H100s (80 GB each):
 
 - **FSDP (ZeRO-3)**: same communication cost as DDP, dramatically lower per-GPU memory. The standard baseline for models that don't fit on one GPU.
 
-- **Tensor parallelism**: communication scales with activation size ($$BD$$), not weight size. Keep TP within-node (≤ 8 GPUs, NVLink). TP reduces activation memory and allows larger per-GPU batch sizes.
+- **Tensor parallelism**: communication scales with activation size ($BD$), not weight size. Keep TP within-node (≤ 8 GPUs, NVLink). TP reduces activation memory and allows larger per-GPU batch sizes.
 
 - **Pipeline parallelism**: useful for very deep models or extreme GPU counts. Adds scheduling complexity; use interleaved 1F1B to minimize bubble overhead.
 

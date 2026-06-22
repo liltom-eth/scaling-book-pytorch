@@ -37,7 +37,7 @@ Per sequence at S=8192 tokens:
 
 $$320 \text{ KB} \times 8192 = 2.62 \text{ GB/sequence}$$
 
-Model weights in BF16: $$70 \times 10^9 \times 2 = 140 \text{ GB}$$
+Model weights in BF16: $70 \times 10^9 \times 2 = 140 \text{ GB}$
 
 KV cache exceeds model weight memory when:
 
@@ -80,13 +80,13 @@ What is the minimum number of H100s to serve LLaMA 3 70B at B=64 concurrent sequ
 - Model: 140 GB
 - KV cache: 64 × 2.62 GB = 167.7 GB
 - Total: 307.7 GB
-- GPUs needed: $$\lceil 307.7 / 80 \rceil = 4$$ H100s
+- GPUs needed: $\lceil 307.7 / 80 \rceil = 4$ H100s
 
 **INT8 weights + INT8 KV cache:**
 - Model: 70 GB
 - KV cache: 64 × 1.31 GB (INT8 halves KV size) = 83.8 GB
 - Total: 153.8 GB
-- GPUs needed: $$\lceil 153.8 / 80 \rceil = 2$$ H100s
+- GPUs needed: $\lceil 153.8 / 80 \rceil = 2$ H100s
 
 Quantization reduces GPU count from 4 to 2 for this serving configuration — halving hardware costs.
 
@@ -212,7 +212,7 @@ You want to serve LLaMA 3 70B to 1,000 concurrent users. Each user sends request
 Option A: TP=8 (single model instance across all 8 H100s)
 - Memory: 140 GB across 8 GPUs = 17.5 GB per GPU (well under 80 GB)
 - KV cache per GPU: ~62 GB
-- Max concurrent at 1k context: ≈ $$62 \text{ GB} / (320 \text{ KB} \times 1024) \approx 190$$ sequences
+- Max concurrent at 1k context: ≈ $62 \text{ GB} / (320 \text{ KB} \times 1024) \approx 190$ sequences
 - But 1,000 users → need queuing/batching
 
 Option B: 2× replicas with TP=4 each

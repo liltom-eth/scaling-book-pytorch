@@ -59,11 +59,11 @@ How many total FLOPs are required to train LLaMA 3 8B on 15 trillion tokens?
 
 :::dropdown Answer
 
-Using the $$6 \times \text{params} \times \text{tokens}$$ rule:
+Using the $6 \times \text{params} \times \text{tokens}$ rule:
 
 $$\text{FLOPs} = 6 \times 8 \times 10^9 \times 15 \times 10^{12} = 7.2 \times 10^{23}$$
 
-For comparison, GPT-4 is estimated at $$\sim 2 \times 10^{25}$$ FLOPs; LLaMA 3 8B is about 36× cheaper.
+For comparison, GPT-4 is estimated at $\sim 2 \times 10^{25}$ FLOPs; LLaMA 3 8B is about 36× cheaper.
 
 :::
 
@@ -117,7 +117,7 @@ $$T_\text{math} = \frac{6 \times 125{,}000 \times 8 \times 10^9}{989 \times 10^{
 
 **DDP AllReduce communication (cross-node, InfiniBand 50 GB/s):**
 
-Weight matrices per layer: $$2 \times 2DF \approx 2 \times 2 \times 4096 \times 14336 \approx 235\text{ MB}$$ per layer. For L=32 layers: ~7.5 GB total.
+Weight matrices per layer: $2 \times 2DF \approx 2 \times 2 \times 4096 \times 14336 \approx 235\text{ MB}$ per layer. For L=32 layers: ~7.5 GB total.
 
 Ring AllReduce on 64 GPUs (8 nodes): total bytes × 2 / bandwidth:
 $$T_\text{comms} = \frac{2 \times 7.5\text{ GB}}{50\text{ GB/s}} \approx 0.3 \text{ s}$$
@@ -152,7 +152,7 @@ Rounding to the conventional 70B.
 
 $$70\text{B} \times 18 \text{ bytes/param} = 1.26\text{ TB}$$
 
-Minimum GPUs at 80 GB HBM: $$\lceil 1260/80 \rceil = 16$$ GPUs, though in practice you need more headroom for activations.
+Minimum GPUs at 80 GB HBM: $\lceil 1260/80 \rceil = 16$ GPUs, though in practice you need more headroom for activations.
 
 :::
 
@@ -189,9 +189,9 @@ You have 512 H100s in 64 nodes of 8 GPUs each. What's the natural TP + FSDP spli
 **FSDP = 512 / 8 = 64** (one per node, across InfiniBand).
 
 This gives:
-- TP AllReduce (NVLink, 900 GB/s): activation tensor $$Out[B_\text{micro}, T, D] = [4, 8192, 8192]$$ in BF16 ≈ 537 MB. Comms time: $$2 \times 537\text{ MB} / 900\text{ GB/s} \approx 1.2\text{ ms}$$ per layer.
-- FSDP AllGather (InfiniBand, 50 GB/s): weight $$W_\text{in}[D, F/8] = [8192, 3584]$$ in BF16 ≈ 59 MB per layer. Comms time: $$59\text{ MB} / 50\text{ GB/s} \approx 1.2\text{ ms}$$ per layer.
-- Compute time per layer per GPU: $$6 \times 31250 \times 8192 \times 3584 / (989 \times 10^{12} \times 8) \approx 7\text{ ms}$$
+- TP AllReduce (NVLink, 900 GB/s): activation tensor $Out[B_\text{micro}, T, D] = [4, 8192, 8192]$ in BF16 ≈ 537 MB. Comms time: $2 \times 537\text{ MB} / 900\text{ GB/s} \approx 1.2\text{ ms}$ per layer.
+- FSDP AllGather (InfiniBand, 50 GB/s): weight $W_\text{in}[D, F/8] = [8192, 3584]$ in BF16 ≈ 59 MB per layer. Comms time: $59\text{ MB} / 50\text{ GB/s} \approx 1.2\text{ ms}$ per layer.
+- Compute time per layer per GPU: $6 \times 31250 \times 8192 \times 3584 / (989 \times 10^{12} \times 8) \approx 7\text{ ms}$
 
 Both communication costs are smaller than compute. The TP + FSDP configuration is compute-bound with 512 H100s and 16M tokens/step.
 

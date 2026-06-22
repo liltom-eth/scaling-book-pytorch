@@ -3,18 +3,18 @@
 Quantization reduces the number of bits used to represent model weights (and optionally activations). The primary motivations:
 
 1. **Reduce memory:** 4-bit quantization stores 2× more parameters per byte vs INT8, 4× vs BF16
-2. **Reduce $$B_\text{crit}$$:** fewer bytes per weight → compute-bound at smaller batch sizes
+2. **Reduce $B_\text{crit}$:** fewer bytes per weight → compute-bound at smaller batch sizes
 3. **Increase throughput:** smaller weights → faster HBM load → more tokens/sec in memory-bound decode
 
 The cost: lower precision introduces quantization error. How much error, and where, depends heavily on the method.
 
 ## The Math of Quantization
 
-**Uniform quantization** maps FP values to integers in $$[-2^{b-1}, 2^{b-1}-1]$$:
+**Uniform quantization** maps FP values to integers in $[-2^{b-1}, 2^{b-1}-1]$:
 
 $$x_q = \text{round}\left(\frac{x}{s}\right), \quad x \approx x_q \cdot s$$
 
-where $$s$$ (scale) is chosen to cover the range of $$x$$. The quantization error per element is bounded by $$s/2$$ (half the step size).
+where $s$ (scale) is chosen to cover the range of $x$. The quantization error per element is bounded by $s/2$ (half the step size).
 
 **Key insight:** a scale factor is required per quantized tensor to recover approximate floating-point values. How you choose the scale granularity and what you quantize determines most of the quality/performance trade-off.
 
@@ -29,11 +29,11 @@ where $$s$$ (scale) is chosen to cover the range of $$x$$. The quantization erro
 
 The simplest and most common case: quantize weights to lower precision, keep activations in BF16. No accuracy loss from activation quantization; weight loading from HBM is halved (INT8) or quartered (INT4).
 
-**Impact on $$B_\text{crit}$$:**
+**Impact on $B_\text{crit}$:**
 
 $$B_\text{crit} = \frac{C}{W_\text{HBM}} \cdot \frac{\text{bits per param}}{\text{bits per activation}}$$
 
-| Config | $$B_\text{crit}$$ on H100 |
+| Config | $B_\text{crit}$ on H100 |
 |:---|:---:|
 | BF16 weights, BF16 activations | 295 |
 | INT8 weights, BF16 activations | 148 |

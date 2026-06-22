@@ -128,7 +128,7 @@ def softmax(x):
 
 ## Flash Attention as a Triton Kernel
 
-Flash Attention (Chapter 5, Appendix A) is the canonical example of a tile-based algorithm that avoids materializing the $$O(T^2)$$ attention matrix. Its Triton implementation maintains running statistics (max and sum) in SRAM as it iterates over K/V tiles.
+Flash Attention (Chapter 5, Appendix A) is the canonical example of a tile-based algorithm that avoids materializing the $O(T^2)$ attention matrix. Its Triton implementation maintains running statistics (max and sum) in SRAM as it iterates over K/V tiles.
 
 ```python
 @triton.jit
@@ -222,7 +222,7 @@ Write custom Triton kernels when:
 
 - **Triton programs operate at the tile level.** Each program instance loads a tile into SRAM, computes in SRAM, and writes results back. No thread-level indexing or CUDA PTX needed.
 
-- **Flash Attention is the prototypical tile-based algorithm.** It maintains running statistics in SRAM to avoid materializing the $$O(T^2)$$ attention matrix, reducing HBM traffic from $$O(T^2)$$ to $$O(T)$$.
+- **Flash Attention is the prototypical tile-based algorithm.** It maintains running statistics in SRAM to avoid materializing the $O(T^2)$ attention matrix, reducing HBM traffic from $O(T^2)$ to $O(T)$.
 
 - **Use `torch.compile` before writing custom kernels.** It generates Triton-based fused kernels automatically for most operation chains. Only write custom Triton when `torch.compile` can't handle your algorithm.
 

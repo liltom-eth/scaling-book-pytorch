@@ -2,11 +2,11 @@
 
 ## The Basics
 
-Inference is conceptually simple: feed tokens in, get log-probabilities out, sample the next token, append it, repeat. But naively, this re-processes the entire prefix at every step — $$O(n^2)$$ for the FFW and $$O(n^3)$$ for attention to generate $$n$$ tokens.
+Inference is conceptually simple: feed tokens in, get log-probabilities out, sample the next token, append it, repeat. But naively, this re-processes the entire prefix at every step — $O(n^2)$ for the FFW and $O(n^3)$ for attention to generate $n$ tokens.
 
-**The KV cache** fixes this. During the forward pass, each token's key and value projections are computed once and saved. Future tokens only compute their own $$q_i \cdot k_j$$ products against the cached keys/values, never re-processing prior tokens. With a KV cache:
+**The KV cache** fixes this. During the forward pass, each token's key and value projections are computed once and saved. Future tokens only compute their own $q_i \cdot k_j$ products against the cached keys/values, never re-processing prior tokens. With a KV cache:
 
-- Time to generate $$n$$ tokens: $$O(n)$$ on FFW, $$O(n^2)$$ on attention
+- Time to generate $n$ tokens: $O(n)$ on FFW, $O(n^2)$ on attention
 - Each generation step is a single forward pass with batch size = 1 per sequence (plus the cache read)
 
 This splits inference into two fundamentally different regimes:
@@ -35,11 +35,11 @@ $$T_\text{math} = \frac{2BDF}{C}$$
 
 $$T_\text{mem} = \frac{2BD + 2DF + 2BF}{W_\text{HBM}}$$
 
-For large $$D$$ and $$F$$ ($$D, F \gg B$$, which holds for any reasonable model with small batch size):
+For large $D$ and $F$ ($D, F \gg B$, which holds for any reasonable model with small batch size):
 
 $$T_\text{mem} \approx \frac{2DF}{W_\text{HBM}} \quad \text{(weight loading dominates)}$$
 
-Compute-bound when $$T_\text{math} > T_\text{mem}$$:
+Compute-bound when $T_\text{math} > T_\text{mem}$:
 
 $$\frac{2BDF}{C} > \frac{2DF}{W_\text{HBM}} \implies B > \frac{C}{W_\text{HBM}} = B_\text{crit}$$
 
@@ -51,7 +51,7 @@ With quantization, the critical batch size changes:
 
 $$B_\text{crit} = \frac{C}{W_\text{HBM}} \cdot \frac{\text{bits per param}}{\text{bits per activation}}$$
 
-| Config | $$B_\text{crit}$$ on H100 |
+| Config | $B_\text{crit}$ on H100 |
 |:---|:---:|
 | BF16 weights, BF16 activations | 295 |
 | INT8 weights, BF16 activations | 148 |
@@ -59,30 +59,30 @@ $$B_\text{crit} = \frac{C}{W_\text{HBM}} \cdot \frac{\text{bits per param}}{\tex
 | INT4 weights, BF16 activations | 74 |
 
 :::note
-**Takeaway — prefill:** Prompts are typically 100–10,000 tokens long. With $$B > 295$$, prefill is compute-bound on H100 BF16. Maximize GPU utilization (MFU) and you maximize both throughput and TTFT.
+**Takeaway — prefill:** Prompts are typically 100–10,000 tokens long. With $B > 295$, prefill is compute-bound on H100 BF16. Maximize GPU utilization (MFU) and you maximize both throughput and TTFT.
 :::
 
 :::note
-**Takeaway — decode:** Each decode step has B = 1 token per request. Even with 100 concurrent requests (B=100 total), this is below $$B_\text{crit} = 295$$. **Decode is almost always memory-bound.** The bottleneck is HBM bandwidth, not compute.
+**Takeaway — decode:** Each decode step has B = 1 token per request. Even with 100 concurrent requests (B=100 total), this is below $B_\text{crit} = 295$. **Decode is almost always memory-bound.** The bottleneck is HBM bandwidth, not compute.
 :::
 
-The implication: to optimize decode throughput, maximize the weight bytes read per second ($$W_\text{HBM} = 3.35$$ TB/s on H100) by batching more requests, using quantization to reduce weight size, and avoiding memory fragmentation.
+The implication: to optimize decode throughput, maximize the weight bytes read per second ($W_\text{HBM} = 3.35$ TB/s on H100) by batching more requests, using quantization to reduce weight size, and avoiding memory fragmentation.
 
 ## Attention: The Quadratic Term
 
 Dot-product attention has a different arithmetic intensity than linear ops because the cost scales with sequence length, not model width.
 
-For the attention computation with query $$Q[B, T, N, H]$$, keys $$K[B, S, K, H]$$, values $$V[B, S, K, H]$$:
+For the attention computation with query $Q[B, T, N, H]$, keys $K[B, S, K, H]$, values $V[B, S, K, H]$:
 
 $$\text{FLOPs} \approx 4BTSKGH = 4BTSNH$$
 
 $$\text{Bytes} \approx 4BTNH + 4BSKH = 4BHK(TG + S)$$
 
-Arithmetic intensity $$\approx \frac{4BTSNH}{4BHK(TG + S)}$$.
+Arithmetic intensity $\approx \frac{4BTSNH}{4BHK(TG + S)}$.
 
-During prefill ($$S = T$$): intensity $$\approx O(T)$$ — attention becomes compute-bound at long context lengths (T > 295 tokens on H100 BF16).
+During prefill ($S = T$): intensity $\approx O(T)$ — attention becomes compute-bound at long context lengths (T > 295 tokens on H100 BF16).
 
-During decode ($$T = 1$$, $$S = $$ context length): intensity $$= O(G)$$ where $$G = N/K$$ is the GQA group size. For LLaMA 3 with G=4: intensity = 4, far below $$B_\text{crit}$$. **Attention decode is memory-bound regardless of context length.**
+During decode ($T = 1$, $S = $ context length): intensity $= O(G)$ where $G = N/K$ is the GQA group size. For LLaMA 3 with G=4: intensity = 4, far below $B_\text{crit}$. **Attention decode is memory-bound regardless of context length.**
 
 The KV cache must be read from HBM at every decode step. For a sequence of length S with K KV heads and head dim H:
 
@@ -117,9 +117,9 @@ For a decode step on a single H100 with LLaMA 3 8B (140 GB weights... wait, 8B f
 
 **Single-request decode (memory-bound):**
 
-Time to load weights: $$16\text{ GB} / 3.35\text{ TB/s} \approx 4.8\text{ ms}$$
+Time to load weights: $16\text{ GB} / 3.35\text{ TB/s} \approx 4.8\text{ ms}$
 
-At 4.8 ms/token: $$1/0.0048 \approx 208 \text{ tokens/s}$$ — but this is for a single request.
+At 4.8 ms/token: $1/0.0048 \approx 208 \text{ tokens/s}$ — but this is for a single request.
 
 **Batch of 50 requests (still memory-bound, weight load amortized):**
 
@@ -188,7 +188,7 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 ```
 
-**Cost:** one AllReduce per layer per decode step. For output $$Out[B, D]$$ in BF16: $$2BD$$ bytes.
+**Cost:** one AllReduce per layer per decode step. For output $Out[B, D]$ in BF16: $2BD$ bytes.
 
 At B=50 requests, D=8192: AllReduce ≈ 50 × 8192 × 2 bytes = 820 KB. At NVLink 900 GB/s: ≈ 0.9 µs — negligible.
 
@@ -227,7 +227,7 @@ pipe = pipeline(
 )
 ```
 
-For draft acceptance rate $$\alpha$$ and draft length K:
+For draft acceptance rate $\alpha$ and draft length K:
 $$\text{Speedup} \approx \frac{1 + K\alpha}{1 + K \cdot (\text{draft cost} / \text{target cost})}$$
 
 For K=5, α=0.7 with a 10× cheaper draft model: speedup ≈ (1 + 3.5)/(1 + 0.5) ≈ 3×.
@@ -236,15 +236,15 @@ Speculative decoding is most effective when the draft and target agree frequentl
 
 ## Key Takeaways
 
-- **Prefill is compute-bound** ($$B_\text{crit} \approx 295$$ tokens on H100 BF16). Maximize GPU utilization for fast TTFT.
+- **Prefill is compute-bound** ($B_\text{crit} \approx 295$ tokens on H100 BF16). Maximize GPU utilization for fast TTFT.
 
-- **Decode is memory-bound.** The bottleneck is HBM bandwidth (3.35 TB/s on H100). Throughput scales linearly with batch size up to $$B_\text{crit}$$; beyond that, you're compute-bound.
+- **Decode is memory-bound.** The bottleneck is HBM bandwidth (3.35 TB/s on H100). Throughput scales linearly with batch size up to $B_\text{crit}$; beyond that, you're compute-bound.
 
 - **KV cache is the dominant memory consumer** at inference time. At 8k context, LLaMA 3 70B needs 2.15 GB per concurrent request. Quantizing KV cache to INT8 halves this.
 
-- **Batch more to improve throughput.** Each additional concurrent request costs only the marginal KV cache memory and improves tokens/second proportionally up to $$B_\text{crit}$$.
+- **Batch more to improve throughput.** Each additional concurrent request costs only the marginal KV cache memory and improves tokens/second proportionally up to $B_\text{crit}$.
 
-- **Quantize weights to reduce $$B_\text{crit}$$** and the minimum memory bandwidth needed per step. INT8 weights halve $$B_\text{crit}$$ to 148, meaning you reach full throughput at smaller batch sizes.
+- **Quantize weights to reduce $B_\text{crit}$** and the minimum memory bandwidth needed per step. INT8 weights halve $B_\text{crit}$ to 148, meaning you reach full throughput at smaller batch sizes.
 
 - **Keep tensor parallelism within-node** for inference (NVLink). Cross-node AllReduce overhead (~16 µs/layer) becomes significant at small batch sizes.
 
